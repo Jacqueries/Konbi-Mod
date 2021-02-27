@@ -210,8 +210,8 @@ def deplacement_along_mode2(Vect,t,natm):
 		# Vect[mode][0][coor] = ieme(coor) coordonnée du mode, Vect[mode][2] = amplitude du mode
 		# Vect[mode][1] = fréquence du mode
 		dpc[coor] = Vect[mode][0][coor]*Vect[mode][2]*np.cos(2*np.pi*Vect[mode][1]*t+np.pi)
-		dpc[coor] = 1/(np.sqrt(1.55))*dpc[coor] 
-		# pondération par la masse moyenne de l'atome. m(C,H,N,O)=1.55)
+		# dpc[coor] = 1/(np.sqrt(10))*dpc[coor] 
+		# pondération par la masse moyenne de l'atome
 		# inéxact mais ce module ne devrait pas être employé pour visualiser les modes, seulement dans le cadre de Konbi-Mod 
 	return dpc
 

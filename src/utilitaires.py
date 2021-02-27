@@ -2,6 +2,11 @@
 """
 import sys, os
 import subprocess
+import numpy as np
+import NMAContrainte as N
+
+############################################################################################################################
+# Configuration
 
 def readConfig(configFile):
 	"""Lit le fichier de configuration
@@ -78,6 +83,301 @@ class Config:
 			axe, H = determineSymetrie(self.pdb)
 			self.axis = writeSymetryAxis(self.pdbName,axe,H)
 
+############################################################################################################################
+# Axe de symmetrie
+
+def distance(xyzr,xyzd):
+	"""Renvoie les distances au carré entre deux set de coordonnées
+	"""
+	return ((xyzr[0] - xyzd[0])**2+(xyzr[1] - xyzd[1])**2+(xyzr[2] - xyzd[2])**2)
+
+def DistMaxPaires(coord):
+	"""Détermine pour chaque point le point le plus éloigné et l'associe en une paire
+	"""
+	Paires = []
+	for d in range(len(coord)):
+		distMax = -1000
+		for a in range(d+1,len(coord)):
+			dist = distance(coord[d],coord[a])
+			if dist > distMax:
+				eph = [coord[d],coord[a],dist]
+				distMax = dist
+		Paires.append(eph)
+	return Paires
+
+def centroid(points):
+	"""Estime le centroid d'un nuage de points 
+	"""
+	x,y,z=[],[],[]
+	for i in range(len(points)):
+		x.append(points[i][0])
+		y.append(points[i][1])
+		z.append(points[i][2])
+
+	xmed = statistics.median(x)
+	ymed = statistics.median(y)
+	zmed = statistics.median(z)
+	return (xmed,ymed,zmed)
+
+def determineLargPlan(centre,nuage):
+	"""prend un centre et un nuage de point en entrée et renvoie la moyenne des distances au centre
+	"""
+	sumDist = 0
+	for point in nuage:
+		sumDist += distance(point,centre)
+	return np.sqrt(sumDist)/len(nuage)
+
+def determineSymetrie(pdbfile):
+	"""Approxime l'axe de symétrie d'un nuage de points 3D
+		Prend en argument un fichier pdb
+	"""
+	liste_atm = NMC.read_coord_PDB(pdbfile)
+	coords = [] # conteneur : coordonnées
+	count_atm = 0
+	for atm in liste_atm:
+		coords.append(atm.xyz)
+		count_atm += 1
+	paires = DistMaxPaires(coords) # Associe par paires les atomes les plus distants
+	paires_triee = sorted(paires, key = lambda x: x[2]) # Trie par distance des paires
+	nPaires = len(paires_triee)
+	two_perc = int(0.02 * nPaires) # On selectionne deux pourcent des paires parmis les plus distantes  
+	keepD = [] # ensemble du centre 1
+	keepA = [] # ensemble du centre 2
+	for i in range(two_perc):
+		keepD.append(paires_triee[-(1+i)][0])
+		keepA.append(paires_triee[-(1+i)][1])
+	cD = centroid(keepD) # calcule le centre 1
+	cA = centroid(keepA) # calcule le centre 1
+	# ces deux ensembles de points constituent l'axe
+	lD = determineLargPlan(cD,keepD)
+	lA = determineLargPlan(cA,keepA)
+	hauteur = (lD+lA)/2
+	return (cD,cA,hauteur)
+
+def writeSymetryAxis(pdbName,axis,H):
+	outFolder('./Struct/Axis')
+	with open('./Struct/Axis/Axis_{}'.format(pdbName), 'w') as out:
+		for point in axis:
+			for coord in point:
+				out.write('{}\n'.format(coord))
+			out.write('#\n')
+		out.write('H={}\n'.format(H))
+
+############################################################################################################################
+# Volume
+
+class Volume:
+	"""Classe Volume qui gère certaines opération du calcul de volume de canal
+	Definit un pavé droit autour du canal le long d'un axe calculé et lu dans un fichier
+	Le volume du canal est calculé en retirant au volume du pavé droit les volumes de 
+	Van der Waals des atomes se trouvant à l'intérieur 
+	"""
+	def __init__(self,s1,s2,interval=2):
+		self.s1 = s1
+		self.s2 = s2
+		self.volume = None
+		self.voxels = None
+		self.inter = interval
+
+	def isInVol(self,pt):
+		"""Check if pt is in Volume
+		"""
+		u = self.s1[0] - self.s2[3]
+		v = self.s1[0] - self.s1[1]
+		w = self.s1[0] - self.s1[3]
+		if np.dot(u,self.s1[0]) > np.dot(u,pt) > np.dot(u,self.s2[3]) and \
+			np.dot(v,self.s1[0]) > np.dot(v,pt) > np.dot(v,self.s1[1]) and \
+			np.dot(w,self.s1[0]) > np.dot(w,pt) > np.dot(w,self.s1[3]):
+			return True
+		return False
+
+	def calcVolume(self):
+		"""calcule le volume du pavé droit
+		"""
+		u = self.s1[0] - self.s2[3]
+		v = self.s1[0] - self.s1[1]
+		w = self.s1[0] - self.s1[3]
+		self.volume =  get_norme(u)*get_norme(v)*get_norme(w)
+	
+	def buildVoxels(self):
+		"""Construit un nuage de points a l'interieur du volume
+		"""
+		v1 = np.array(vector(self.s1[0],self.s1[1]))
+		v2 = np.array(vector(self.s1[0],self.s1[3]))
+		v3 = np.array(vector(self.s1[0],self.s2[3]))
+		it1 = int(get_norme(v1)/self.inter)
+		it3 = int(get_norme(v3)/self.inter)
+		v1,v2,v3 = v1/it1,v2/it1,v3/it3
+		xyz = []
+		for i in range(it3):
+			pt = np.array(self.s1[0])+np.array(v3)*i
+			for j in range(it1):
+				pt = np.array(pt)+np.array(v2)
+				for k in range(it1):
+					pt = np.array(pt)+np.array(v1)
+					xyz.append(pt)
+				pt = pt - it1*np.array(v1)
+		self.voxels = xyz
+
+#####Utilitaires et calculs pour le volume#####
+
+def move_on_axe(A,B,progress):
+	"""Se deplace le long d'un vecteur AB
+	"""
+	x = A[0] + (B[0]-A[0])*progress
+	y = A[1] + (B[1]-A[1])*progress
+	z = A[2] + (B[2]-A[2])*progress
+	return np.array([x,y,z])
+
+def is_equal(n,m):
+	"""Verifie l'égalité entre deux float
+	"""
+	return n+m < 1e-10 and n+m >= 0 or n+m > -1e-10 and n+m <= 0
+
+def get_norme(AB):
+	"""Renvoie la norme d'un vecteur AB
+	"""
+	return np.sqrt(AB[0]**2+AB[1]**2+AB[2]**2)
+
+def vector(A,B):
+	"""renvoie le vecteur AB
+	"""
+	return np.array([B[0]-A[0],B[1]-A[1],B[2]-A[2]])
+
+def point_du_plan(P,A):
+	"""Renvoie un point du plan
+	"""
+	return np.array([0,0,-P[3]/P[2]])
+
+def is_on_the_plane(v,P):
+    return is_equal(v[0]*P[0] + v[1]*P[1] + v[2]*P[2], P[3])
+
+def plan(AB,B):
+	"""Renvoie le plan colineaire a AB contenant B
+	"""
+	a = AB[0]
+	b = AB[1]
+	c = AB[2]
+	d = -(a*B[0]+b*B[1]+c*B[2])
+	return np.array([a,b,c,d])
+
+def base_du_plan(A,B):
+	"""Le plan P, le vecteur normal vNorm
+	construit la base du plan v1,v2
+	"""
+	vNorm = vector(A,B)
+	P = plan(vNorm,B)
+	p1 = point_du_plan(P,B)
+	v1 = vector(B,p1)
+	v2 = np.cross(vNorm, v1)
+	return (v1,v2)
+
+def coins(v1,v2,Pt,h):
+	"""Prend v1,v2 les bases d'un plan, un point Pt qui appartient à ce plan et h une longeur
+	Renvoie les quatres points d'une surface (2*h)**2 centré sur Pt
+	"""
+	nv1 = get_norme(v1)
+	nv2 = get_norme(v2)
+	r1 = h/nv1
+	r2 = h/nv2
+	c0 = Pt + v1*r1 + v2*r2
+	c1 = Pt - v1*r1 + v2*r2
+	c2 = Pt - v1*r1 - v2*r2
+	c3 = Pt + v1*r1 - v2*r2
+	return np.array([c0,c1,c2,c3])
+
+def surface(axe,h):
+	"""Determine les deux surfaces faisant partie de deux plans orthogonaux à l'axe
+	le point axe[0] appartient à s1 et axe[1] appartient à s2
+	"""
+	A = axe[0]
+	B = axe[1]
+	v1,v2 = base_du_plan(A,B)
+	s1 = coins(v1,v2,B,h)
+	v1,v2 = base_du_plan(B,A)
+	s2 = coins(v1,v2,A,h)
+	return (np.array([s1,s2]))
+
+def verif(s1,s2,A,B):
+	"""Vérifie que les surfaces s1 et s2 ont été correctement crées
+	cad perpendiculairement à l'axe
+	"""
+	vNorm = vector(A,B)
+	P1 = plan(vNorm,B)
+	vNorm2 = vector(B,A)
+	P2 = plan(vNorm2,A)
+	for i in range(len(s1)):
+		a = is_on_the_plane(s1[i],P2)
+		b = is_on_the_plane(s2[i],P1)
+		if not a or not b :
+			print("Error is not on plane")
+
+def get_axe(pathtoaxe):
+	"""lecture du fichier axe dans ./Struct/Axes/
+	retourne l'axe, et la hauteur du plan du volume
+	"""
+	ax = np.array([[0.,0.,0.],[0.,0.,0.]])
+	with open(pathtoaxe,'r') as axe:
+		p,i = 0,0
+		for line in axe:
+			if line.startswith('H='):
+				H = float(line.strip().split('=')[1])
+
+				continue
+			if line.startswith('#'):
+				p = 1
+				i = 0
+				continue
+			ax[p][i] = line.strip()
+			i+=1
+	return (ax,H)
+
+def build_example(file,axe,h): #build_example('Exemple.pdb',get_axe())
+	"""Construit l'exemple du volume dans un fichier pdb
+	Peut être superposé avec le fichier pdb pour visualiser l'encadrement du canal
+	"""	
+	s1,s2 = surface(axe,h)
+	lon = get_norme(vector(axe[0],axe[1]))
+	step = 1
+	nstep = int(lon/step)+1
+	verif(s1,s2,axe[1],axe[0])
+	cx = axe[1]
+	sx0 = s1[0]
+	sx1 = s1[1]
+	sx2 = s1[2]
+	sx3 = s1[3]
+	natm = 0
+	with open (file,'w') as ex:
+		for i in range(nstep):
+			prg = (i+1)/nstep
+			ex.write("ATOM{:>7d}{:>6s}{:>3s}{:>5d}{:>10.3f}{:>10.3f}{:>10.3f}{:>3d}{:>3d}\n".format(natm,'O ',"TIP3",1,cx[0],cx[1],cx[2],1,0 ))
+			natm+=1
+			ex.write("ATOM{:>7d}{:>6s}{:>3s}{:>5d}{:>10.3f}{:>10.3f}{:>10.3f}{:>3d}{:>3d}\n".format(natm,'O ',"TIP3",1,sx0[0],sx0[1],sx0[2],1,0 ))
+			natm+=1
+			ex.write("ATOM{:>7d}{:>6s}{:>3s}{:>5d}{:>10.3f}{:>10.3f}{:>10.3f}{:>3d}{:>3d}\n".format(natm,'O ',"TIP3",1,sx1[0],sx1[1],sx1[2],1,0 ))
+			natm+=1
+			ex.write("ATOM{:>7d}{:>6s}{:>3s}{:>5d}{:>10.3f}{:>10.3f}{:>10.3f}{:>3d}{:>3d}\n".format(natm,'O ',"TIP3",1,sx2[0],sx2[1],sx2[2],1,0 ))
+			natm+=1
+			ex.write("ATOM{:>7d}{:>6s}{:>3s}{:>5d}{:>10.3f}{:>10.3f}{:>10.3f}{:>3d}{:>3d}\n".format(natm,'O ',"TIP3",1,sx3[0],sx3[1],sx3[2],1,0 ))
+			natm+=1
+			cx = move_on_axe(axe[1],axe[0],prg)
+			sx0 = move_on_axe(s1[0],s2[3],prg)
+			sx1 = move_on_axe(s1[1],s2[2],prg)
+			sx2 = move_on_axe(s1[2],s2[1],prg)
+			sx3 = move_on_axe(s1[3],s2[0],prg)
+		natm+=1
+
+def BuildOBB(axe,h):
+	"""Construit le volume R qui contient le canal
+	Retourne R
+	"""
+	s1,s2 = surface(axe,h)
+	verif(s1,s2,axe[1],axe[0])
+	R = Volume(s1,s2)
+	R.calcVolume()
+	# R.buildVoxels() Methode d'estimation du volume trop lente pour l'instant
+	return R
+
 
 ############################################################################################################################
 # writers/ readers
@@ -152,6 +452,13 @@ def writeSelectedModes(vector,value,name,C):
 		for elem in vector[0]:
 			eig.write('{}\n'.format(elem))
 
+def writeWeights(wei):
+	with open('out/Weights.txt','w') as w:
+		for k,elem in enumerate(wei.combinaisonMax):
+			w.write('Weights : {}\n'.format(k))
+			for e in elem:
+				w.write('{}\n'.format(e))
+
 def readEigenVs(file):
 	"""Lit un fichier comportant des vecteurs propres genéré par nma.py
 	(fichier primaire de Konbi-Mod)
@@ -191,7 +498,7 @@ def read_coord_PDB(nomfichier):
                 resNumber = line[23:27]
                 xyz = [x,y,z]
                 ty = ' '+str(line[13:14])#str(line[15:16])
-                atome=Atom(numAtom,xyz,ty,chain,resname,resNumber)
+                atome=N.Atom(numAtom,xyz,ty,chain,resname,resNumber)
                 liste_atomes.append(atome)
     return(liste_atomes)
 

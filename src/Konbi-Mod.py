@@ -16,6 +16,7 @@ from nma import ANMA
 import sys,os
 import utilitaires as U
 import anime as A
+import NMAContrainte as N
 
 configFile = sys.argv[1]
 Config = U.readConfig(configFile)
@@ -36,4 +37,16 @@ if Config.generateNMA:
 	# Config.mfile : crée le fichier qui contiendra les vecteurs propres filtrées par collectivité et reformatés
 	
 	A.fromLaunch(Config)
-	# N.fromLaunch(Config)
+	N.fromLaunch(Config)
+
+elif Config.goread:
+	
+	# si les modes de basses fréquences ont déja été extrait et filtré par collectivité
+	N.fromLaunch(Config)
+
+else:
+
+	# si les modes de basses fréquences ont été extrait mais pas filtrés
+	Config.mfile = '{}/ModesBassesFrequences{}.txt'.format(Config.eigenFolder,Config.pdbName)
+	A.fromLaunch(Config)
+	N.fromLaunch(Config)

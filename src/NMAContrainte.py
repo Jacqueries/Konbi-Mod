@@ -29,8 +29,6 @@ class Atom:
         self.volume = None
         self.radii = self.affectradii(ty)#1.42 #angstrom
         self.neighbors = []
-        self.Hnei = [] #neighbors for hessian construct
-        self.Hdis = [] #distance associated with neighbors Hnei
         self.mass = self.affectmass(ty)
 
     def computeVolume(self):
@@ -41,33 +39,48 @@ class Atom:
     		self.neighbors.append(numvoisin)
 
     def move_2(self,dpc):
+    	"""deplace les atomes par rapport à leur emplacement d'origine
+    	"""
     	self.traj = np.array(dpc)+self.xyz
 
     def move_W(self,dpc,t):
+    	"""deplace les atomes par rappport à leur emplacement précédent
+    	"""
     	if t == 0:
     		self.traj = self.xyz
     	self.traj = np.array(dpc)+self.traj
 
-    def AddHneiHdis(self,nei,dist):
-    	"""add nei to Hnei and the distance 
-    	"""
-    	self.Hnei.append(nei)
-    	self.Hdis.append(dist)
 
     def affectradii(self,ty):
+    	"""Affecte à un atome son rayon de van der waals
+    	Source: PyMol
+    	"""
     	dRadii = {'H':1.2,'C':1.7,'N':1.55,'O':1.52,
     	'S':1.8}
     	if ty not in dRadii.keys():
     		return 1.42
     	else:
     		return dRadii[ty]
+
     def affectmass(self,ty):
+    	"""Affecte à un atome sa masse molaire
+    	"""
     	dmass = {'H':1.,'C':12.,'N':14.,'O':16.,
     	'S':32.}
     	if ty not in dmass.keys():
     		return 10.
     	else:
     		return dmass[ty]
+
+def dist_atomes(xyz1,xyz2):
+    """
+        Calcul la distance entre deux atomes
+        Arguments:
+            + atom1 : objet Atom
+            + atom2 : objet Atom
+        Retourne la distance entre ces atomes
+    """
+    return(np.sqrt((xyz1[0] - xyz2[0])**2 + (xyz1[1] - xyz2[1])**2 + (xyz1[2] - xyz2[2])**2))
 
 ############################################################################################################################
 #utilitaires
@@ -121,6 +134,41 @@ def trajMaxCombinaison(Latm,eigenvectors,w,C):
 		Latm = ReturnDisplacedLatmW(Latm,eigenvectors,len(Latm),t,w.combinaisonMax[-1],C)
 		U.write_PDB(C.pdb,U.getxyz(Latm),wmode,'X',typ='ATOM')
 
+def voisins(Latm,inside):
+	"""Ajoute a un atome sa liste de voisins 
+	Deux atomes sont considérés voisins si leurs volumes de van der valls se chevauchent
+	"""
+	for e in range(len(inside)):
+		for k in range(e+1,len(inside)):
+			i = inside[e]
+			j = inside[k]
+			dij = dist_atomes(Latm[i].traj,Latm[j].traj)
+
+			if dij < Latm[i].radii + Latm[j].radii:
+				Latm[i].ajVoisin(j)
+				Latm[j].ajVoisin(i)
+	return Latm
+
+def retrieveData(iteration,metrique,C,mode):
+	"""Ecrit les données de volume/ sasa/ ... au cours de l'optimisation
+	"""
+	file = '{}_{}.txt'.format(C.pdbName,C.temp)
+	if mode:
+		mode = 'a'
+	else:
+		mode = 'w'
+	with open(file, mode) as fil:
+		fil.write('{},{}\n'.format(iteration,metrique))
+
+def writeMemory(memory):
+	"""ecrit dans un fichier l'évolution des poids pour chaque mode a chaque itération
+	"""
+	with open('./out/memoryWeights.csv', 'w') as out:
+		for i,mode in enumerate(memory):
+			out.write('Mode{}'.format(i))
+			for weight in mode:
+				out.write(',{}'.format(weight))
+			out.write('\n')
 
 ############################################################################################################################
 # trajectoire
@@ -181,6 +229,165 @@ def weightedDisplact(Vect,t,natm,weights,C,Latm):
 			dpc[coor] += weights[k]*Vect[mode][0][coor]*amp*np.cos(2*np.pi*Vect[mode][1]*t+np.pi)
 		dpc[coor] = (1/(np.sqrt(Latm[m].mass)))*dpc[coor]
 	return dpc
+
+############################################################################################################################
+# Monte Carlo Volume
+
+def double_overlap(pos1, pos2, r1, r2):
+    """
+    double_overlap(pos1, pos2, r1, r2)
+    Calculate the overlap volume of two spheres of radius r1, r2, at positions
+        pos1, pos2
+    """
+    d = sum((pos1 - pos2) ** 2) ** 0.5
+    # check they overlap
+    if d >= (r1 + r2):
+        return 0
+    # check if one entirely holds the other
+    if r1 > (d + r2):  # 2 is entirely contained in one
+        return 4. / 3. * np.pi * r2 ** 3
+    if r2 > (d + r1):  # 1 is entirely contained in one
+        return 4. / 3. * np.pi * r1 ** 3
+
+    vol = (np.pi * (r1 + r2 - d) ** 2 * (d ** 2 + (2 * d * r1 - 3 * r1 ** 2 +2 * d * r2 - 3 * r2 ** 2)+ 6 * r1 * r2)) / (12 * d)
+    return vol
+
+def volOverlap(Latm):
+	"""Estime le volume commun de VdW
+	"""
+	sumOverlap = 0
+	watchList = []
+	for atm in Latm:
+		for v in atm.neighbors:
+			if v in watchList:
+				continue
+			watchList.append(v)
+			sumOverlap += double_overlap(atm.traj,Latm[v].traj,atm.radii,Latm[v].radii)
+	return sumOverlap
+
+def CalcVolCanal(Latm,R):
+	"""Estime le volume occupé par les atomes pour une configuration xyz dans le volume R
+		retourne le volume du canal
+		(estimation qui peut être affinée mais difficile mathématiquement)
+	"""
+	inside = []
+	nstep = 1000
+	volVdW = 0
+	for i in range(len(Latm)):
+		if R.isInVol(Latm[i].traj):
+			inside.append(i)
+			Latm[i].computeVolume()
+			volVdW += Latm[i].volume
+	Latm = voisins(Latm,inside)
+	sumOverlap = volOverlap(Latm)
+	cuttedVol = 0
+
+	vpoche = R.volume- (volVdW- (sumOverlap+ cuttedVol))
+	return vpoche
+
+def goVolume(eigenvectors,Latm,contrainte,C):
+	"""Lance l'optimisation des poids pour maximiser le volume
+		-Args:
+			_eigenvectors: les vecteurs propres selectionés
+			_Latm: la liste d'atomes
+			_contrainte: le ratio d'augmentation ou de diminution de la sasa pour la selection
+			_C: configuration
+	"""
+	natm = len(Latm)
+	axe,h = U.get_axe(C.axis)
+	U.build_example('Struct\\OBB.pdb',axe,h) # construit une représentation cubique du volume 
+	R = U.BuildOBB(axe,h) # construit l'objet Volume
+	volCanali = CalcVolCanal(Latm,R) # calule le volume initial du canal
+	contrainte = contrainte*volCanali # définition de la contrainte
+	modeE = 0
+	aj = 1 # permet d'aller vers une augmentation ou une diminution du volume
+	if volCanali > contrainte:
+		aj = - 1 # si contrainte est inférieure au volume initial alors on va vers une diminution
+	volCanalmax,volDefault = volCanali,volCanali
+	print("Volume initial : {}".format(volCanali))
+	w = W.Weights(len(eigenvectors)) # initialisation des poids (aléatoire)
+	d,prgs = 0,0 # d : pas de temps utilisé, prgs : décompte des itérations
+	Svol = []
+	while  contrainte*aj > volCanali*aj and prgs < 50: # tant que la contrainte n'est pas satisfaite et que le nombre d'iteration nest pas atteint
+		w.reajustWeights(prgs) # reajustement des poids
+		Latm = ReturnDisplacedLatm(Latm,eigenvectors,natm,d,w.weights,C) # deplacement des atomes selon les modes pondérés
+		volCanali = CalcVolCanal(Latm,R) # calcul de la surface accessible au solvent après déplacement
+		print(volCanali)
+		if volCanali*aj > volCanalmax*aj and prgs >= len(w.weights)*2: # si augmentation du volume et post saturation
+			w.reajustLimits(prgs) # reajustement des bornes des poids (entre -1 et 1)
+			w.saveCombinaisonMax(d) # sauvegarder cette combinaison 
+			volCanalmax = volCanali
+			Svol = []
+			print("Etape {}, évolution du volume du canal : {:.3f}".format(prgs,aj*(volCanali-volDefault)))
+			retrieveData(prgs,(volCanali-volDefault),C,modeE)
+			modeE+=1
+		elif volCanali*aj > volDefault*aj and prgs < len(w.weights)*2: # voir weights.py pour la saturation
+			w.reajustLimits(prgs)
+		else :
+			Svol,w = W.watch(volCanali,Svol,w)
+			w.precState() # retourne au vecteur de poids précédent si pas d'amélioration
+		prgs+=1
+	return [Latm,w]
+
+
+############################################################################################################################
+# Monte Carlo Surface accessible au solvant
+
+def calcSASA(Latm,selection):
+	"""Calcule la surface accessible au solvent (SAS) des acides aminés de la selecion
+	Retourne la SAS pour une sélection donnée
+	"""
+	freesasa.setVerbosity(1)
+	structure = freesasa.Structure()
+	for a in Latm:
+		structure.addAtom(a.ty,a.resname,a.resN,a.chain,a.traj[0],a.traj[1],a.traj[2])
+	result = freesasa.calc(structure)
+	selections = freesasa.selectArea((selection,'all, resn ala'), structure, result)
+	return selections[selection.split()[0][:-1]]
+
+def goSurface(selection,Latm,contrainte,eigenvectors,natm,C):
+	"""Lance l'optimisation des poids pour maximiser la suface accessible au solvent
+	de la selection selon la contrainte donnée par l'utilisateur
+		-Args:
+			_selection: la selection d'acide aminés pour le calcul de surface accessible 
+			au solvant, abrégé sasa ou sas
+			_Latm: la liste d'atomes
+			_contrainte: le ratio d'augmentation ou de diminution de la sasa pour la selection
+			_eigenvectors: les vecteurs propres selectionés
+			_natm:le nombre d'atomes
+			_C: configuration
+
+	"""
+	saInit = calcSASA(Latm,selection) # calcule la sas de la selection
+	contrainte = contrainte*saInit # définition de la contrainte
+	modeE = 0
+	aj = 1 # permet d'aller vers une augmententation ou diminution la sas
+	if saInit > contrainte:
+		aj = - 1
+	SASAmax, saDefault = saInit, saInit
+	print("Surface initiale de {} : {}".format(selection,saInit))
+	w = W.Weights(len(eigenvectors)) # initialisation des poids (aléatoire)
+	prgs,d = 0,0 # d : pas de temps utilisé, prgs : décompte des itérations
+	SASA = []
+	while contrainte*aj > saInit*aj and prgs < 500: # tant que la contrainte n'est pas satisfaite et que le nombre d'iteration nest pas atteint
+		w.reajustWeights(prgs) # reajustement des poids
+		Latm = ReturnDisplacedLatm(Latm,eigenvectors,natm,d,w.weights,C) # deplacement des atomes selon les modes pondérés
+		saInit = calcSASA(Latm,selection) # calcul de la surface accessible au solvent après déplacement
+		if saInit*aj > SASAmax*aj and prgs >= len(w.weights)*2: # si sas init est depasse et que iterations post saturation
+			w.reajustLimits(prgs) # reajustement des bornes des poids (entre -1 et 1)
+			w.saveCombinaisonMax(d) # sauvegarder cette combinaison 
+			SASAmax = saInit
+			SASA = []
+			print("Etape {}, évolution de la surface accessible au solvant : {:.3f}".format(prgs,aj*(saInit- saDefault)))
+			# retrieveData(prgs,(saInit- saDefault),C,modeE)
+			modeE+=1
+		elif saInit*aj > saDefault*aj and prgs < len(w.weights)*2: # voir weights.py pour la saturation
+			w.reajustLimits(prgs)
+		else :
+			SASA,w = W.watch(saInit,SASA,w)		
+			w.precState() # retourne au vecteur de poids précédent si pas d'amélioration	
+		prgs+=1
+	return [Latm,w]
 
 ############################################################################################################################
 # starters organisateurs
