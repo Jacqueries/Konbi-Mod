@@ -1,5 +1,11 @@
 """Konbi-Mod permet de trouver une combinaison de modes normaux de basses fréquences
 d'une protéine qui satisfait une contrainte donnée par l'utilisateur.
+Usage : 
+	python Konbi-Mod.py configuration.txt
+
+Necessite python 3
+Compatibilité : majorité des systèmes linux
+Développé sur WSL et portage linux fait sur Ubuntu 20.04.1 LTS
 """
 
 __auteur__ = ("Ilyas Grandguillaume")
@@ -9,6 +15,7 @@ import mdtraj as md
 from nma import ANMA
 import sys,os
 import utilitaires as U
+import anime as A
 
 configFile = sys.argv[1]
 Config = U.readConfig(configFile)
@@ -25,6 +32,8 @@ if Config.generateNMA:
 	anma_traj = anma.fit_transform(pdb,Config.efile)
 	###################################################################################################################
 	
-	# Config.mfile = '{}\\ModesBassesFrequences{}.txt'.format(Config.eigenFolder,Config.pdbName)
-	# A.fromLaunch(Config)
+	Config.mfile = '{}/ModesBassesFrequences{}.txt'.format(Config.eigenFolder,Config.pdbName) 
+	# Config.mfile : crée le fichier qui contiendra les vecteurs propres filtrées par collectivité et reformatés
+	
+	A.fromLaunch(Config)
 	# N.fromLaunch(Config)
