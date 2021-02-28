@@ -6,6 +6,9 @@ import sys, os
 import random
 import copy
 class Weights:
+	"""Classe des poids. Permet de ponderer les modes de basses fréquence
+	lors de l'optimisation.
+	"""
 	def __init__(self,nmodes):
 		self.weights = np.full(nmodes,0.0) #initWeights
 		self.linf = np.full(len(self.weights),-1.0)
@@ -75,7 +78,7 @@ class Weights:
 				elif self.weights[i] < self.wp[i]:
 					self.lsup[i] = self.weights[i]
 	def rdz(self):
-		"""Modifie un interval choisi aleatoirement
+		"""Réinitialise un interval choisi aleatoirement
 		"""
 		i = random.randint(0,len(self.weights)-1)
 		self.linf[i] = -1.0
@@ -89,6 +92,8 @@ class Weights:
 		self.timeCollect.append(time)
 
 	def initMemory(self):
+		"""Recuperation de données
+		"""
 		memi = []
 		for _ in range(len(self.weights)):
 			memi.append([])
@@ -104,11 +109,12 @@ class Weights:
 def watch(Vol,Svol,w):
 	"""Verifie que les valeurs récentes du volume/surface ne stagnent pas
 	Si elles stagnent, perturbe n poids tirés aleatoirement ( réinitialise les bornes)
+	les valeurs 10 et 0.1 sont arbitraires
 	"""
 	Svol.append(Vol)
-	if len(Svol)>10:
-		if np.std(Svol) < 0.1*np.mean(Svol):
-			n = len(w.weights) # random.randint(1,int(len(w.weights)/2))
+	if len(Svol)>10: # si stagnation pendant 10 itérations
+		if np.std(Svol) < 0.1*np.mean(Svol): # si les valeurs varient peu
+			n = len(w.weights) # on réinitialise n poids aléatoires
 			for i in range(n):
 				w.rdz()
 		Svol = []

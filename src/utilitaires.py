@@ -57,12 +57,14 @@ def readConfig(configFile):
 				Sel = line.strip().split('=')[1]
 			if line.startswith('Temperature'):
 				Tmp = line.strip().split('=')[1]
-	return Config(PathToPdbFile,GenerateVectors,FolderVectors,PathToAxis,EigenFile,process,ModesFile,goread,Type,Contrainte,Coll,Sel,Tmp)
+			if line.startswith('Nombre_iterations'):
+				nIter = line.strip().split('=')[1]
+	return Config(PathToPdbFile,GenerateVectors,FolderVectors,PathToAxis,EigenFile,process,ModesFile,goread,Type,Contrainte,Coll,Sel,Tmp,nIter)
 
 class Config:
 	"""Garde en mémoire la configuration donnée par l'utilisateur
 	"""
-	def __init__(self,pdbFile,GenerV,folderV,pathToAxis,EigenFile,process,ModesFile,goread,Type,Contrainte,Coll,Sel,Tmp):
+	def __init__(self,pdbFile,GenerV,folderV,pathToAxis,EigenFile,process,ModesFile,goread,Type,Contrainte,Coll,Sel,Tmp,nIter):
 		self.pdb = pdbFile
 		self.pdbName = self.pdb.split('.')[1].split('/')[2]
 		self.generateNMA = GenerV
@@ -77,6 +79,7 @@ class Config:
 		self.coll = float(Coll) #seuil de collectivité
 		self.selection = self.reWriteSelection(Sel) # selection de residu pour le calcul de SAS ou de num atomes pour le calcul de distances
 		self.temp = int(Tmp)
+		self.niter = int(nIter)
 
 	def check_axis(self):
 		"""Create axis file from pdb if axis missing and needed

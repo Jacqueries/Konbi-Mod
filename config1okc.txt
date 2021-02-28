@@ -1,0 +1,25 @@
+GenerateVectors=NO
+PathToPdbFile=./Struct/1okc.pdb
+FolderVectors=Modes
+PathToAxis=None
+EigenFile=./Modes/EignenVector1okc.txt
+ModesFile=./Modes/ModesBassesFrequences1okc.txt
+Type=Distance
+Contrainte=1.8
+Selection=[[647,1691],[1465,983]]
+Collectivity=0.25
+Temperature=300
+Nombre_iterations=500
+#
+#
+#GenerateVectors=YES/NO
+#PathToPdbFile=Mandatory
+#FolderVectors= Modes/MesVecteurs ignoré si GenerateVectors = Yes
+#PathToAxis=./Struct/Axis/Axis_1okc.txt
+#EigenFile=./Modes/EignenVector1okc.txt
+#ModesFile=./Modes/ModesBassesFrequences1okc.txt
+#Type=Volume ou Surface
+#Contrainte=1.25 Valeur de SAS ou volume à atteindre Contrainte*Initial = Attendu
+#Selection=... ou None
+#Collectivity=0.2 Seuil de collectivitée
+#Temperature=100 Utilisée pour le calcul de l'amplitude

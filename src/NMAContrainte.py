@@ -308,7 +308,7 @@ def goVolume(eigenvectors,Latm,contrainte,C):
 	w = W.Weights(len(eigenvectors)) # initialisation des poids (aléatoire)
 	d,prgs = 0,0 # d : pas de temps utilisé, prgs : décompte des itérations
 	Svol = []
-	while  contrainte*aj > volCanali*aj and prgs < 50: # tant que la contrainte n'est pas satisfaite et que le nombre d'iteration nest pas atteint
+	while  contrainte*aj > volCanali*aj and prgs < C.niter: # tant que la contrainte n'est pas satisfaite et que le nombre d'iteration nest pas atteint
 		w.reajustWeights(prgs) # reajustement des poids
 		Latm = ReturnDisplacedLatm(Latm,eigenvectors,natm,d,w.weights,C) # deplacement des atomes selon les modes pondérés
 		volCanali = CalcVolCanal(Latm,R) # calcul de la surface accessible au solvent après déplacement
@@ -369,7 +369,7 @@ def goSurface(selection,Latm,contrainte,eigenvectors,natm,C):
 	w = W.Weights(len(eigenvectors)) # initialisation des poids (aléatoire)
 	prgs,d = 0,0 # d : pas de temps utilisé, prgs : décompte des itérations
 	SASA = []
-	while contrainte*aj > saInit*aj and prgs < 500: # tant que la contrainte n'est pas satisfaite et que le nombre d'iteration nest pas atteint
+	while contrainte*aj > saInit*aj and prgs < C.niter: # tant que la contrainte n'est pas satisfaite et que le nombre d'iteration nest pas atteint
 		w.reajustWeights(prgs) # reajustement des poids
 		Latm = ReturnDisplacedLatm(Latm,eigenvectors,natm,d,w.weights,C) # deplacement des atomes selon les modes pondérés
 		saInit = calcSASA(Latm,selection) # calcul de la surface accessible au solvent après déplacement
@@ -428,7 +428,7 @@ def goDistance(selection,Latm,contrainte,eigenvectors,natm,C):
 	w = W.Weights(len(eigenvectors)) # initialisation des poids (aléatoire)
 	prgs,d = 0,0 # d : pas de temps utilisé, prgs : décompte des itérations
 	Distances = []
-	while contrainte*aj > distInit*aj and prgs < 500: # tant que la contrainte n'est pas satisfaite et que le nombre d'iteration nest pas atteint
+	while contrainte*aj > distInit*aj and prgs < C.niter: # tant que la contrainte n'est pas satisfaite et que le nombre d'iteration nest pas atteint
 		w.reajustWeights(prgs) # reajustement des poids
 		Latm = ReturnDisplacedLatm(Latm,eigenvectors,natm,d,w.weights,C) # deplacement des atomes selon les modes pondérés
 		distInit = np.mean(calcDistance(selection,Latm)) # calcul de la surface accessible au solvent après déplacement
