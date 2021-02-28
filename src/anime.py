@@ -1,7 +1,7 @@
 """Ecrit dans un fichier les vecteurs de basses fréquence filtrées par collectivité
 Peut être utilisé seul pour écrire dans des fichiers .pdb les trajectoires selon certains modes
 Usage :
-	python Animate.py fichier_vecteurs_propres fichier_pdb température seuil nombre_de_frames
+	python anime.py fichier_vecteurs_propres fichier_pdb température seuil nombre_de_frames
 
 fichier_vecteurs_propres: fichier de vecteurs propres et valeurs propres généré par nma.py
 fichier_pdb: un fichier au format pdb 
@@ -9,7 +9,7 @@ température: un entier. en Kelvin
 seuil: seuil de collectivité au dessus duquel on conserve un mode. entre 0 et 1
 nombre_de_frames: nombre de frames pour la trajectoire de sortie.
 
-	exemple : python Animate.py eigenvecteur.txt pdbFile.pdb 100 0.2 50
+	exemple : python anime.py eigenvecteur.txt pdbFile.pdb 100 0.2 50
 
 La trajectoire sera écrite au format pdb et peut être visualisée avec le programme VMD par exemple
 """
@@ -210,7 +210,7 @@ def deplacement_along_mode2(Vect,t,natm):
 		# Vect[mode][0][coor] = ieme(coor) coordonnée du mode, Vect[mode][2] = amplitude du mode
 		# Vect[mode][1] = fréquence du mode
 		dpc[coor] = Vect[mode][0][coor]*Vect[mode][2]*np.cos(2*np.pi*Vect[mode][1]*t+np.pi)
-		# dpc[coor] = 1/(np.sqrt(10))*dpc[coor] 
+		dpc[coor] = 1/(np.sqrt(10))*dpc[coor] 
 		# pondération par la masse moyenne de l'atome
 		# inéxact mais ce module ne devrait pas être employé pour visualiser les modes, seulement dans le cadre de Konbi-Mod 
 	return dpc
