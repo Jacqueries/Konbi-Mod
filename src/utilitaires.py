@@ -75,7 +75,7 @@ class Config:
 		self.type = Type
 		self.contr = float(Contrainte)
 		self.coll = float(Coll) #seuil de collectivité
-		self.selection = reWriteSelection(Sel) # selection de residu pour le calcul de SAS ou de num atomes pour le calcul de distances
+		self.selection = self.reWriteSelection(Sel) # selection de residu pour le calcul de SAS ou de num atomes pour le calcul de distances
 		self.temp = int(Tmp)
 
 	def check_axis(self):

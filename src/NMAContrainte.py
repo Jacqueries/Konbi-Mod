@@ -402,11 +402,7 @@ def calcDistance(paires,Latm):
 	"""
 	liste_distance = []
 	for paire in paires:
-		liste_distance.append(dist_atomes(Latm[paire[0]].traj,Latm[paire[1]].traj))
-
-		print(Latm[paire[0]].num,paire[0])
-		print(Latm[paire[1]].num,paire[1])
-
+		liste_distance.append(dist_atomes(Latm[paire[0]-1].traj,Latm[paire[1]-1].traj))
 	return liste_distance
 
 def goDistance(selection,Latm,contrainte,eigenvectors,natm,C):
@@ -421,27 +417,27 @@ def goDistance(selection,Latm,contrainte,eigenvectors,natm,C):
 			_natm:le nombre d'atomes
 			_C: configuration
 	"""
-	distInit = calcDistance(selection,Latm) # calcule la sas de la selection
+	distInit = np.mean(calcDistance(selection,Latm)) # calcule la sas de la selection
 	contrainte = contrainte*distInit # définition de la contrainte
 	# modeE = 0
 	aj = 1 # permet d'aller vers une augmententation ou diminution la distance
 	if distInit > contrainte:
 		aj = - 1
 	distmax, distDefault = distInit, distInit
-	print("Distance initiale des atomes de la selection {} : {}".format(selection,distInit))
+	print("Distance initiale des atomes de la selection {} : {:.3f}".format(selection,distInit))
 	w = W.Weights(len(eigenvectors)) # initialisation des poids (aléatoire)
 	prgs,d = 0,0 # d : pas de temps utilisé, prgs : décompte des itérations
 	Distances = []
 	while contrainte*aj > distInit*aj and prgs < 500: # tant que la contrainte n'est pas satisfaite et que le nombre d'iteration nest pas atteint
 		w.reajustWeights(prgs) # reajustement des poids
 		Latm = ReturnDisplacedLatm(Latm,eigenvectors,natm,d,w.weights,C) # deplacement des atomes selon les modes pondérés
-		distInit = mean(calcDistance(Latm,selection)) # calcul de la surface accessible au solvent après déplacement
+		distInit = np.mean(calcDistance(selection,Latm)) # calcul de la surface accessible au solvent après déplacement
 		if distInit*aj > distmax*aj and prgs >= len(w.weights)*2: # si sas init est depasse et que iterations post saturation
 			w.reajustLimits(prgs) # reajustement des bornes des poids (entre -1 et 1)
 			w.saveCombinaisonMax(d) # sauvegarder cette combinaison 
 			distmax = distInit
 			Distances = []
-			print("Etape {}, évolution de la surface accessible au solvant : {:.3f}".format(prgs,aj*(distInit- saDefault)))
+			print("Etape {}, évolution de la distance : {:.3f}".format(prgs,aj*(distInit- distDefault)))
 			# retrieveData(prgs,(distInit- distDefault),C,modeE)
 			# modeE+=1
 		elif distInit*aj > distDefault*aj and prgs < len(w.weights)*2: # voir weights.py pour la saturation
@@ -471,9 +467,9 @@ def fromLaunch(C):
 		contrainte = C.contr
 		Latm,w = goVolume(eigenvectors,Latm,contrainte,C)
 	if Algo == 'Distance':
-		election = C.selection
+		selection = C.selection
 		contrainte = C.contr
-		Latm,w = goDistance(selection,Latm,contrainte,eigenvectors,natm,C)
+		Latm,w = goDistance(selection,Latm,contrainte,eigenvectors,len(Latm),C)
 
 	if w.combinaisonMax:
 		visual(Latm,w,eigenvectors,pdb,C)
