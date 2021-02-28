@@ -10,10 +10,11 @@ Développé sur WSL et portage linux fait sur Ubuntu 20.04.1 LTS
 
 __auteur__ = ("Ilyas Grandguillaume")
 __contact__ = ("ilyasgrand@live.fr")
-
+import sys,os
+sys.path.append('/home/jacques/miniconda3/lib/python3.8')
+print(sys.path)
 import mdtraj as md
 from nma import ANMA
-import sys,os
 import utilitaires as U
 import anime as A
 import NMAContrainte as N

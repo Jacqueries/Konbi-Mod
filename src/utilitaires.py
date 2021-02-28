@@ -1,9 +1,11 @@
 """Ce fichier python contient les utilitaires du programme
+la classe config et la classe volume. 
 """
 import sys, os
 import subprocess
 import numpy as np
 import NMAContrainte as N
+import ast
 
 ############################################################################################################################
 # Configuration
@@ -73,7 +75,7 @@ class Config:
 		self.type = Type
 		self.contr = float(Contrainte)
 		self.coll = float(Coll) #seuil de collectivité
-		self.selection = Sel # selection de residu pour le calcul de SAS
+		self.selection = reWriteSelection(Sel) # selection de residu pour le calcul de SAS ou de num atomes pour le calcul de distances
 		self.temp = int(Tmp)
 
 	def check_axis(self):
@@ -82,6 +84,14 @@ class Config:
 		if self.type == 'Volume' and self.axis == None:
 			axe, H = determineSymetrie(self.pdb)
 			self.axis = writeSymetryAxis(self.pdbName,axe,H)
+
+	def reWriteSelection(self,selection):
+		"""Reformate la selection si le type d'analyse est Distance entre atomes
+		"""
+		if self.type == 'Distance':
+			return ast.literal_eval(selection)
+		return selection
+
 
 ############################################################################################################################
 # Axe de symmetrie
