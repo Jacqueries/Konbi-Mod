@@ -25,12 +25,11 @@ Ce programme à été crée dans le cadre d'un projet encadré par un professeur
 
 		$python configuration.txt
 
-Konbi_Mod nécessite un fichier de configuration pour fonctionner. Un exemple de ce fichier est donné dans ce repertoire. Konbi-Mod nécessite aussi un répertoire qui contient ./src ./Struct ./Modes.
-
-Dans le fichier de configuration vous pouvez indiquer si vous voulez que le script calcule les modes de basses fréquences avec :
-		GenerateVectors=YES
-Une fois calculés pour un système donné, pensez à indiquer dans le fichier de configuration:
-		GenerateVectors=NO
+Konbi_Mod nécessite un fichier de configuration pour fonctionner. Un exemple de ce fichier est donné dans ce repertoire. Konbi-Mod nécessite aussi un répertoire qui contient ./src ./Struct ./Modes.\newline
+Dans le fichier de configuration vous pouvez indiquer si vous voulez que le script calcule les modes de basses fréquences avec :\newline
+		-GenerateVectors=YES
+Une fois calculés pour un système donné, pensez à indiquer dans le fichier de configuration:\newline
+		-GenerateVectors=NO
 pour gagner du temps.
 Les vecteurs et valeurs propres calculés seront stockés dans un fichier primaire brut dans le répertoire Modes, sous le nom EigenVectorPDB.txt avec PDB le nom du fichier pdb sur lequel vous calculez les modes. Un fichier secondaire contenant les modes de collectivité supérieure à un seuil sera crée à partir de EigenVectorPDB.txt, formaté différemment.
 Vous pouvez ensuite indiquer dans le fichier de configuration le chemin vers le fichier primaire avec:
