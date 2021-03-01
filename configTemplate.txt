@@ -1,0 +1,28 @@
+GenerateVectors=YES
+PathToPdbFile=./Struct/Ma_structure.pdb
+FolderVectors=Modes
+PathToAxis=NONE
+EigenFile=NONE
+ModesFile=NONE
+Type=Volume
+Contrainte=1
+Selection=NONE
+Collectivity=0.1
+Temperature=100
+Nombre_iterations=0
+#
+#
+#GenerateVectors=YES/NO
+#PathToPdbFile=Chemin vers le fichier pdb. Obligatoire
+#FolderVectors=Modes (laisser tel quel sauf raison particulière)
+#PathToAxis=Chemin vers le fichier qui contient l'axe de symétrie
+#EigenFile=Chemin vers le fichier qui contient le fichier primaires des modes. ex: /Modes/EignenVectorPDB.txt
+#ModesFile=Chemin vers le fichier qui contient le fichier secondaire des modes filtrées par collectivité. ex: /Modes/ModesBassesFrequencesPDB.txt
+#Type=Type de contrainte : Volume, Surface ou Distance
+#Contrainte=ratio d'augmentation ou de diminution de la contrainte. ex: 1.25 
+#Selection=selection d'aa pour Type=Surface, selection de numéro d'atomes si Type=Distance
+#ex pour la surface accessible au solvant: sel, resi 366-403 and chain A
+#ex pour la distance entre atomes: [[322,45],[166,1098]]
+#Collectivity=Seuil de collectivité au dessus duquel on conserve les modes pour l'optimisation
+#Temperature=Utilisé pour le calcul de l'amplitude, en Kelvin
+#Nombre_iterations= Nombre d'itération lors de l'optimisation.
