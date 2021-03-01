@@ -1,0 +1,14 @@
+GenerateVectors=NO
+PathToPdbFile=./Struct/3pgk.pdb
+FolderVectors=Modes
+PathToAxis=NONE
+EigenFile=./Modes/EigenVector3pgk.txt
+ModesFile=./Modes/ModesBassesFrequences3pgk.txt
+Type=Surface
+Contrainte=1.5
+Selection=sel, resi 366-403 and chain A
+Collectivity=0.1
+Temperature=300
+Nombre_iterations=300
+#
+
