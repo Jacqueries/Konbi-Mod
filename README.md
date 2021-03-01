@@ -3,7 +3,7 @@ Konbi-Mod permet de trouver une combinaison de modes normaux qui satisfait une c
 
 Ce programme à été écrit dans le cadre d'un projet encadré par un professeur à l'université paris diderot, et à été développé en python 3.8.
 
-# Prérequis:
+# Prérequis
 	-python3 ou supérieur
 
 	-GNU Compiler Collection gcc
@@ -23,9 +23,9 @@ Ce programme à été écrit dans le cadre d'un projet encadré par un professeu
 
 # Utilisation
 
-		$python configuration.txt
+		$python ./src/Konbi-Mod.py configuration.txt
 
-Konbi_Mod nécessite un fichier de configuration pour fonctionner. Un exemple de ce fichier est donné dans ce répertoire. Konbi-Mod nécessite aussi un répertoire qui contient ./src ./Struct ./Modes.\newline
+Konbi_Mod nécessite un fichier de configuration en entrée pour fonctionner. Un exemple de ce fichier est donné dans ce répertoire. Konbi-Mod nécessite aussi un répertoire qui contient ./src ./Struct ./Modes.\newline
 Dans le fichier de configuration vous pouvez indiquer si vous voulez que le script calcule les modes de basses fréquences avec :
 
 	GenerateVectors=YES  
@@ -63,14 +63,15 @@ Ceci n'est nécessaire que quand la contrainte est un volume à atteindre, sinon
 	-Le type de contrainte voulue: Distance, Volume ou Surface  
 		Type=Distance  
 
-	-La syntaxe de la sélection qui dépend de la contrainte: pour une contrainte de distance entre  atomes, indiquer une liste de paires de numéros d'atomes du fichier .pdb, par exemple:  
+	-La syntaxe de la sélection qui dépend de la contrainte: pour une contrainte de distance entre  atomes, indiquer une liste de paires de numéros d'atomes du fichier .pdb, par exemple:   
 		Selection=[[647,1691]]  
 
 Pour une contrainte de surface accessible au solvant, la syntaxe complète est disponible ici: https://freesasa.github.io/1.1/Selection.html . Par exemple pour les résidus 366 à 403 de la chaîne A:  
 		
+		Type=Selection
 		Selection=sel, resn 366-403  
 
-Pour une contrainte sur le volume, aucune sélection n'est nécessaire.  
+Pour une contrainte de volume, aucune sélection n'est nécessaire.  
 
 	-Le ratio d'augmentation ou de diminution de la contrainte. Par exemple 0.95 pour une diminution de 5%, 1.05 pour une augmentation de 5%  
 		Contrainte=1.05  
@@ -82,8 +83,23 @@ Pour une contrainte sur le volume, aucune sélection n'est nécessaire.
 		Temperature=300  
 
 	-Le nombre d'itération lors de l'optimisation:  
-		Nombre_iterations=500  
+		Nombre_iterations=500  *
+(le nombre d'itération doit être supérieur à deux fois le nombre de modes)  
 
 Dans le fichier de config les # sont des lignes commentaires. L'ordre des elements n'a pas d'importance.
 
 Astuce : Pour un fichier pdb donné, faites une première run avec vos paramètres de collectivité, de température et les paramètres par défaut (dans configTemplate.txt) et spécifiez uniquement GenerateVectors=YES. Après la génération des deux fichiers, indiquez GenerateVectors=NO et spécifiez l'emplacement de vos deux fichiers de vecteurs propres. Vous pouvez ensuite essayer différents types de contraintes, de sélection, d'itération et de température.
+
+# Sortie
+
+Konbi-Mod génère en premier lieu les fichiers contenant les modes de basses fréquences (50 modes, non filtré = fichier primaire) et les modes de basses fréquences au dessus du seuil de collectivité indiqué (n modes filtrés = fichier secondaire) dans le répertoire ./Modes.
+
+Ensuite lors de l'optimisation le fichier memoryWeights.csv sera généré dans ./out. Il contient la valeur des poids à chaque itération.
+
+Après l'optimisation deux fichier pdb seront générées, l'un contenant la trajectoire selon la combinaison de modes la plus favorable par rapport à la contrainte donnée, et l'autre contenant la frame *0* du système à chaque étape de l'optimisation ou la valeur de la contrainte à été améliorée (ces étapes sont notifiées sur le terminal pendant l'optimisation). Un fichier Weights.txt donne les poids attribués au modes à chacune de ces étapes. tous ces fichiers seront générées dans ./out.
+
+# Exemple
+
+		$python ./src/Konbi-Mod.py ./Exemples/configuration3pgk.txt
+
+La protéine 3pgk à deux domaines articulés autour d'une charnière. Les déplacements le long de ses modes sont amples et c'est un modèle idéal pour éprouver Konbi-Mod. La contrainte définie est une augmentation de la surface accessible au solvant de 20% des acides aminés 366 à 403 qui constituent la région  charnière de la protéine.
