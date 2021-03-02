@@ -88,11 +88,13 @@ Pour une contrainte de volume, aucune sélection n'est nécessaire.
 
 Dans le fichier de config les # sont des lignes commentaires. L'ordre des elements n'a pas d'importance.
 
-Astuce : Pour un fichier pdb donné, faites une première run avec vos paramètres de collectivité, de température et les paramètres par défaut (dans configTemplate.txt) et spécifiez uniquement GenerateVectors=YES. Après la génération des deux fichiers, indiquez GenerateVectors=NO et spécifiez l'emplacement de vos deux fichiers de vecteurs propres. Vous pouvez ensuite essayer différents types de contraintes, de sélection, d'itération et de température.
+*Astuce :* Pour un fichier pdb donné, faites une première run avec vos paramètres de collectivité, de température et les paramètres par défaut (dans configTemplate.txt) et spécifiez uniquement GenerateVectors=YES. Après la génération des deux fichiers, indiquez GenerateVectors=NO et spécifiez l'emplacement de vos deux fichiers de vecteurs propres. Vous pouvez ensuite essayer différents types de contraintes, de sélection, d'itération et de température.
 
 # Sortie
 
 Konbi-Mod génère en premier lieu les fichiers contenant les modes de basses fréquences (50 modes, non filtré = fichier primaire) et les modes de basses fréquences au dessus du seuil de collectivité indiqué (n modes filtrés = fichier secondaire) dans le répertoire ./Modes.
+
+Si la contrainte choisie est Type=Volume pour une protéine à canal, Konbi-Mod va générer un axe de symétrie qui va passer le long de ce canal. Cet axe sera écrit dans un fichier situé dans le répertoire ./Struct/Axis. Ensuite le pavé droit sera écrit dans un fichier dans ./Struct sous le nom OBB.pdb. Sa position pourra être visualisée en le chargeant avec la structure de la protéine dans un logiciel de visualisation moléculaire.   
 
 Ensuite lors de l'optimisation le fichier memoryWeights.csv sera généré dans ./out. Il contient la valeur des poids à chaque itération.
 
