@@ -15,7 +15,7 @@ class Weights:
 		self.lsup = np.full(len(self.weights),1.0)
 		self.wp = copy.deepcopy(self.weights)
 		self.combinaisonMax = []
-		self.importance = np.full(nmodes,False)
+		# self.importance = np.full(nmodes,False)
 		self.timeCollect = []
 		self.memory = self.initMemory()
 
@@ -49,15 +49,10 @@ class Weights:
 	def reajustWeights(self,indice):
 		"""Tire au hasard les poids à l'interieur de leurs bornes respectives
 		"""
-		if indice < len(self.weights)*2:
-			self.weights = np.full(len(self.weights),0.0)
-			self.ajustIndiv(indice)
-		else:
-			self.wp = copy.deepcopy(self.weights)
-			for i in range(len(self.weights)):
-				if self.importance[i]:
-					self.weights[i] = random.uniform(self.linf[i],self.lsup[i])
-			self.updateMemory()
+		self.wp = copy.deepcopy(self.weights)
+		for i in range(len(self.weights)):
+			self.weights[i] = random.uniform(self.linf[i],self.lsup[i])
+		self.updateMemory()
 
 	def precState(self):
 		"""Return to last save
@@ -69,14 +64,13 @@ class Weights:
 		Si un poids a augmenté et que le volume du canal aussi alors sa limite 
 		inferieure devient sa valeur précedente et inversement
 		"""
-		if indice < len(self.weights)*2:
-			self.importance[int(indice/2)] = True
-		else:
-			for i in range(len(self.weights)):
-				if self.weights[i] > self.wp[i]:
-					self.linf[i] = self.weights[i]
-				elif self.weights[i] < self.wp[i]:
-					self.lsup[i] = self.weights[i]
+		for i in range(len(self.weights)):
+			if self.weights[i] > self.wp[i]:
+				self.linf[i] = 0.5*self.weights[i]
+			elif self.weights[i] < self.wp[i]:
+				self.lsup[i] = self.weights[i] + 0.5*self.weights[i]
+				if self.lsup[i] > 1:
+					self.lsup[i] = 1
 	def rdz(self):
 		"""Réinitialise un interval choisi aleatoirement
 		"""

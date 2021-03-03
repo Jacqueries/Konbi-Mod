@@ -6,6 +6,7 @@ import subprocess
 import numpy as np
 import NMAContrainte as N
 import ast
+import statistics
 
 ############################################################################################################################
 # Configuration
@@ -144,7 +145,7 @@ def determineSymetrie(pdbfile):
 	"""Approxime l'axe de symétrie d'un nuage de points 3D
 		Prend en argument un fichier pdb
 	"""
-	liste_atm = NMC.read_coord_PDB(pdbfile)
+	liste_atm = read_coord_PDB(pdbfile)
 	coords = [] # conteneur : coordonnées
 	count_atm = 0
 	for atm in liste_atm:
@@ -165,7 +166,7 @@ def determineSymetrie(pdbfile):
 	lD = determineLargPlan(cD,keepD)
 	lA = determineLargPlan(cA,keepA)
 	hauteur = (lD+lA)/2
-	return (cD,cA,hauteur)
+	return ((cD,cA),hauteur)
 
 def writeSymetryAxis(pdbName,axis,H):
 	outFolder('./Struct/Axis')
@@ -175,6 +176,7 @@ def writeSymetryAxis(pdbName,axis,H):
 				out.write('{}\n'.format(coord))
 			out.write('#\n')
 		out.write('H={}\n'.format(H))
+	return './Struct/Axis/Axis_{}'.format(pdbName)
 
 ############################################################################################################################
 # Volume

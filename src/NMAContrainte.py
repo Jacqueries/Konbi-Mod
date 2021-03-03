@@ -126,7 +126,7 @@ def trajMaxCombinaison(Latm,eigenvectors,w,C):
 			_w:instance de la classe weights
 			_C: configuration
 	"""
-	for t in range(100):
+	for t in range(250):
 		if t == 0:
 			wmode = 'w'
 		else:
@@ -226,9 +226,31 @@ def weightedDisplact(Vect,t,natm,weights,C,Latm):
 		dpc.append(0)
 		for  k,mode in enumerate(Vect.keys()):
 			amp = A.calc_amplitude(Vect[mode][1],Tmp) # calcul l'amplitude du mode
-			dpc[coor] += weights[k]*Vect[mode][0][coor]*amp*np.cos(2*np.pi*Vect[mode][1]*t+np.pi)
+			dpc[coor] += weights[k]*Vect[mode][0][coor]*amp*np.cos(2*np.pi*Vect[mode][1]*t)#+np.pi
 		dpc[coor] = (1/(np.sqrt(Latm[m].mass)))*dpc[coor]
 	return dpc
+
+###UPDATE
+
+def ReturnDisplacedLatmNew(Latm,modeLf,natm,t,weights,C):
+	"""Modifie les coordonnées selon la trajectoire
+	Retourne une liste d'atome
+		-Args:
+			_Latm: liste d'atomes
+			_modeLf: vecteur propre
+			_natm: nombre d'atomes
+			_t: pas de temps, ignoré
+			_weights: poids associés
+			_C: configuration
+	"""
+	for t in range(50):
+		dpc = weightedDisplact(modeLf,t,natm,weights,C,Latm)
+		for j in range(len(Latm)):
+			i = int(j * 3)
+			Latm[j].move_W([dpc[i],dpc[i+1],dpc[i+2]],t)
+	return Latm
+
+
 
 ############################################################################################################################
 # Monte Carlo Volume
@@ -295,7 +317,7 @@ def goVolume(eigenvectors,Latm,contrainte,C):
 	"""
 	natm = len(Latm)
 	axe,h = U.get_axe(C.axis)
-	U.build_example('Struct\\OBB.pdb',axe,h) # construit une représentation cubique du volume 
+	U.build_example('./Struct/OBB.pdb',axe,h) # construit une représentation cubique du volume 
 	R = U.BuildOBB(axe,h) # construit l'objet Volume
 	volCanali = CalcVolCanal(Latm,R) # calule le volume initial du canal
 	contrainte = contrainte*volCanali # définition de la contrainte
@@ -313,16 +335,14 @@ def goVolume(eigenvectors,Latm,contrainte,C):
 		Latm = ReturnDisplacedLatm(Latm,eigenvectors,natm,d,w.weights,C) # deplacement des atomes selon les modes pondérés
 		volCanali = CalcVolCanal(Latm,R) # calcul de la surface accessible au solvent après déplacement
 		print(volCanali)
-		if volCanali*aj > volCanalmax*aj and prgs >= len(w.weights)*2: # si augmentation du volume et post saturation
+		if volCanali*aj > volCanalmax*aj: # si augmentation du volume et post saturation
 			w.reajustLimits(prgs) # reajustement des bornes des poids (entre -1 et 1)
 			w.saveCombinaisonMax(d) # sauvegarder cette combinaison 
 			volCanalmax = volCanali
 			Svol = []
 			print("Etape {}, évolution du volume du canal : {:.3f}".format(prgs,aj*(volCanali-volDefault)))
-			retrieveData(prgs,(volCanali-volDefault),C,modeE)
-			modeE+=1
-		elif volCanali*aj > volDefault*aj and prgs < len(w.weights)*2: # voir weights.py pour la saturation
-			w.reajustLimits(prgs)
+			# retrieveData(prgs,(volCanali-volDefault),C,modeE)
+			# modeE+=1
 		else :
 			Svol,w = W.watch(volCanali,Svol,w)
 			w.precState() # retourne au vecteur de poids précédent si pas d'amélioration
@@ -373,7 +393,8 @@ def goSurface(selection,Latm,contrainte,eigenvectors,natm,C):
 		w.reajustWeights(prgs) # reajustement des poids
 		Latm = ReturnDisplacedLatm(Latm,eigenvectors,natm,d,w.weights,C) # deplacement des atomes selon les modes pondérés
 		saInit = calcSASA(Latm,selection) # calcul de la surface accessible au solvent après déplacement
-		if saInit*aj > SASAmax*aj and prgs >= len(w.weights)*2: # si sas init est depasse et que iterations post saturation
+		print(saInit)
+		if saInit*aj > SASAmax*aj : # si sas init est depasse
 			w.reajustLimits(prgs) # reajustement des bornes des poids (entre -1 et 1)
 			w.saveCombinaisonMax(d) # sauvegarder cette combinaison 
 			SASAmax = saInit
@@ -381,8 +402,6 @@ def goSurface(selection,Latm,contrainte,eigenvectors,natm,C):
 			print("Etape {}, évolution de la surface accessible au solvant : {:.3f}".format(prgs,aj*(saInit- saDefault)))
 			# retrieveData(prgs,(saInit- saDefault),C,modeE)
 			modeE+=1
-		elif saInit*aj > saDefault*aj and prgs < len(w.weights)*2: # voir weights.py pour la saturation
-			w.reajustLimits(prgs)
 		else :
 			SASA,w = W.watch(saInit,SASA,w)		
 			w.precState() # retourne au vecteur de poids précédent si pas d'amélioration	
@@ -406,7 +425,7 @@ def calcDistance(paires,Latm):
 	return liste_distance
 
 def goDistance(selection,Latm,contrainte,eigenvectors,natm,C):
-	"""Lance l'optimisation des poids pour maximiser la suface accessible au solvent
+	"""Lance l'optimisation des poids pour maximiser la distance
 	de la selection selon la contrainte donnée par l'utilisateur
 		-Args:
 			_selection: la selection de numéro d'atomes pour lesquel on veut contraindre la distance
@@ -432,7 +451,7 @@ def goDistance(selection,Latm,contrainte,eigenvectors,natm,C):
 		w.reajustWeights(prgs) # reajustement des poids
 		Latm = ReturnDisplacedLatm(Latm,eigenvectors,natm,d,w.weights,C) # deplacement des atomes selon les modes pondérés
 		distInit = np.mean(calcDistance(selection,Latm)) # calcul de la surface accessible au solvent après déplacement
-		if distInit*aj > distmax*aj and prgs >= len(w.weights)*2: # si sas init est depasse et que iterations post saturation
+		if distInit*aj > distmax*aj: # si sas init est depasse et que iterations post saturation
 			w.reajustLimits(prgs) # reajustement des bornes des poids (entre -1 et 1)
 			w.saveCombinaisonMax(d) # sauvegarder cette combinaison 
 			distmax = distInit
@@ -440,8 +459,6 @@ def goDistance(selection,Latm,contrainte,eigenvectors,natm,C):
 			print("Etape {}, évolution de la distance : {:.3f}".format(prgs,aj*(distInit- distDefault)))
 			# retrieveData(prgs,(distInit- distDefault),C,modeE)
 			# modeE+=1
-		elif distInit*aj > distDefault*aj and prgs < len(w.weights)*2: # voir weights.py pour la saturation
-			w.reajustLimits(prgs)
 		else :
 			Distances,w = W.watch(distInit,Distances,w)		
 			w.precState() # retourne au vecteur de poids précédent si pas d'amélioration	

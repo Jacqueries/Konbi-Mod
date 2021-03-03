@@ -1,5 +1,6 @@
 """Konbi-Mod permet de trouver une combinaison de modes normaux de basses fréquences
 d'une protéine qui satisfait une contrainte donnée par l'utilisateur.
+====================================================================================
 Usage : 
 	python Konbi-Mod.py configuration.txt
 
@@ -17,9 +18,14 @@ import utilitaires as U
 import anime as A
 import NMAContrainte as N
 
+if sys.argv[1] == 'help' or sys.argv[1] == '-h':
+	print(__doc__)
+	sys.exit()
+
 configFile = sys.argv[1]
 Config = U.readConfig(configFile)
 U.verif_env(Config)
+Config.check_axis()
 
 if Config.generateNMA:
 
