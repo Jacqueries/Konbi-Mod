@@ -66,11 +66,20 @@ class Weights:
 		"""
 		for i in range(len(self.weights)):
 			if self.weights[i] > self.wp[i]:
-				self.linf[i] = 0.5*self.weights[i]
+				if self.weights[i] < 0:
+					self.linf[i] = 0.5*self.weights[i] + 0.5*self.weights[i]
+				else:
+					self.linf[i] = 0.5*self.weights[i]
 			elif self.weights[i] < self.wp[i]:
-				self.lsup[i] = self.weights[i] + 0.5*self.weights[i]
-				if self.lsup[i] > 1:
-					self.lsup[i] = 1
+				if self.weights[i] < 0:
+					self.lsup[i] = 0.5*self.weights[i]
+				else:
+					self.lsup[i] = self.weights[i] + 0.5*self.weights[i]
+			
+			if self.lsup[i] > 1:
+				self.lsup[i] = 1
+			if self.linf[i] < 1:
+				self.linf[i] = -1
 	def rdz(self):
 		"""Réinitialise un interval choisi aleatoirement
 		"""
