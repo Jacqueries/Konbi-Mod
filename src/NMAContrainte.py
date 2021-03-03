@@ -14,6 +14,9 @@ import utilitaires as U
 import freesasa
 import scipy.spatial.distance
 
+import time
+import multiprocessing
+
 ############################################################################################################################
 # classe Atome
 class Atom:
@@ -126,7 +129,7 @@ def trajMaxCombinaison(Latm,eigenvectors,w,C):
 			_w:instance de la classe weights
 			_C: configuration
 	"""
-	for t in range(250):
+	for t in range(100):
 		if t == 0:
 			wmode = 'w'
 		else:
@@ -226,13 +229,13 @@ def weightedDisplact(Vect,t,natm,weights,C,Latm):
 		dpc.append(0)
 		for  k,mode in enumerate(Vect.keys()):
 			amp = A.calc_amplitude(Vect[mode][1],Tmp) # calcul l'amplitude du mode
-			dpc[coor] += weights[k]*Vect[mode][0][coor]*amp*np.cos(2*np.pi*Vect[mode][1]*t)#+np.pi
+			dpc[coor] += weights[k]*Vect[mode][0][coor]*amp*np.cos(2*np.pi*Vect[mode][1]*t + np.pi )#+np.pi
 		dpc[coor] = (1/(np.sqrt(Latm[m].mass)))*dpc[coor]
 	return dpc
 
 ###UPDATE
 
-def ReturnDisplacedLatmNew(Latm,modeLf,natm,t,weights,C):
+def ReturnDisplacedLatmD(Latm,modeLf,natm,t,weights,C):
 	"""Modifie les coordonnées selon la trajectoire
 	Retourne une liste d'atome
 		-Args:
@@ -243,14 +246,64 @@ def ReturnDisplacedLatmNew(Latm,modeLf,natm,t,weights,C):
 			_weights: poids associés
 			_C: configuration
 	"""
-	for t in range(50):
+	for t in range(t+1):
 		dpc = weightedDisplact(modeLf,t,natm,weights,C,Latm)
 		for j in range(len(Latm)):
 			i = int(j * 3)
 			Latm[j].move_W([dpc[i],dpc[i+1],dpc[i+2]],t)
 	return Latm
 
+def weightedDisplactT(Vect,t,natm,weights,C,Latm):
+	"""Déplace les atomes selon une combinaison des modes
+		-Args:
+			_Vect: vecteur propre
+			_t: pas de temps, ici vaudra toujours 0
+			_natm: nombre d'atomes
+			_weights: poids associés
+			_C: configuration
+			_Latm: liste d'atomes
+	Référence : Dynamical Properties of the MscL of Escherichia coli: A Normal Mode Analysis
+	H.Valadie,J.Lacapc,Y-H.Sanejouand and C.Etchebest
+	"""
+	t1 = time.time()
+	
+	manager = multiprocessing.Manager()
+	coor_dict = manager.dict()
 
+	Tmp = C.temp # température indiquée dans le fichier de config
+
+	nproc = multiprocessing.cpu_count()
+	nbatch = int((natm*3)/(nproc*4))
+	if natm%nproc != 0:
+		nbatch += 1
+	coor = 0
+	for batch in range(nbatch):
+		jobs = []
+		count = 0
+		while coor < (natm*3) and count < (nproc*4):
+			# m = int(coor/3)
+			p = multiprocessing.Process(target=parallelDisplacement, args=(coor_dict,coor,Vect,t,weights,Latm,Tmp))
+			jobs.append(p)
+			p.start()
+			count += 1
+			coor += 1
+
+		for proc in jobs:
+			proc.join()
+
+	dpc = []
+	for coor in range(natm*3):
+		dpc.append(coor_dict[coor])
+	t2 = time.time()
+	print("Seconds = {:.2f}".format((t2-t1)))
+	return dpc
+
+def parallelDisplacement(coor_dict,coor,Vect,t,weights,Latm,Tmp):
+	coor_dict[coor] = 0
+	for  k,mode in enumerate(Vect.keys()):
+		amp = A.calc_amplitude(Vect[mode][1],Tmp) # calcul l'amplitude du mode
+		coor_dict[coor] += weights[k]*Vect[mode][0][coor]*amp*np.cos(2*np.pi*Vect[mode][1]*t)#+np.pi
+	coor_dict[coor] = (1/(np.sqrt(Latm[int(coor/3)].mass)))*coor_dict[coor]
 
 ############################################################################################################################
 # Monte Carlo Volume
@@ -393,7 +446,7 @@ def goSurface(selection,Latm,contrainte,eigenvectors,natm,C):
 		w.reajustWeights(prgs) # reajustement des poids
 		Latm = ReturnDisplacedLatm(Latm,eigenvectors,natm,d,w.weights,C) # deplacement des atomes selon les modes pondérés
 		saInit = calcSASA(Latm,selection) # calcul de la surface accessible au solvent après déplacement
-		print(saInit)
+
 		if saInit*aj > SASAmax*aj : # si sas init est depasse
 			w.reajustLimits(prgs) # reajustement des bornes des poids (entre -1 et 1)
 			w.saveCombinaisonMax(d) # sauvegarder cette combinaison 
@@ -406,6 +459,7 @@ def goSurface(selection,Latm,contrainte,eigenvectors,natm,C):
 			SASA,w = W.watch(saInit,SASA,w)		
 			w.precState() # retourne au vecteur de poids précédent si pas d'amélioration	
 		prgs+=1
+
 	return [Latm,w]
 
 ############################################################################################################################
@@ -424,7 +478,7 @@ def calcDistance(paires,Latm):
 		liste_distance.append(dist_atomes(Latm[paire[0]-1].traj,Latm[paire[1]-1].traj))
 	return liste_distance
 
-def goDistance(selection,Latm,contrainte,eigenvectors,natm,C):
+def goDistance2(selection,Latm,contrainte,eigenvectors,natm,C):
 	"""Lance l'optimisation des poids pour maximiser la distance
 	de la selection selon la contrainte donnée par l'utilisateur
 		-Args:
@@ -449,8 +503,11 @@ def goDistance(selection,Latm,contrainte,eigenvectors,natm,C):
 	Distances = []
 	while contrainte*aj > distInit*aj and prgs < C.niter: # tant que la contrainte n'est pas satisfaite et que le nombre d'iteration nest pas atteint
 		w.reajustWeights(prgs) # reajustement des poids
+		t1 = time.time()
 		Latm = ReturnDisplacedLatm(Latm,eigenvectors,natm,d,w.weights,C) # deplacement des atomes selon les modes pondérés
+		t2 = time.time()
 		distInit = np.mean(calcDistance(selection,Latm)) # calcul de la surface accessible au solvent après déplacement
+		t3 = time.time()
 		if distInit*aj > distmax*aj: # si sas init est depasse et que iterations post saturation
 			w.reajustLimits(prgs) # reajustement des bornes des poids (entre -1 et 1)
 			w.saveCombinaisonMax(d) # sauvegarder cette combinaison 
@@ -459,10 +516,78 @@ def goDistance(selection,Latm,contrainte,eigenvectors,natm,C):
 			print("Etape {}, évolution de la distance : {:.3f}".format(prgs,aj*(distInit- distDefault)))
 			# retrieveData(prgs,(distInit- distDefault),C,modeE)
 			# modeE+=1
+
 		else :
 			Distances,w = W.watch(distInit,Distances,w)		
 			w.precState() # retourne au vecteur de poids précédent si pas d'amélioration	
+		# print("Seconds = {:.2f} , {:.2f}, {:.2f}".format((t2-t1),(t3-t2),(((t3-t2)-(t2-t1)))))
 		prgs+=1
+	return [Latm,w]
+
+###Update
+
+def goDistance(selection,Latm,RatioC,eigenvectors,natm,C):
+	"""Lance l'optimisation des poids pour maximiser la distance
+	de la selection selon la contrainte donnée par l'utilisateur
+		-Args:
+			_selection: la selection de numéro d'atomes pour lesquel on veut contraindre la distance
+			sous forme de liste de listes de paires
+			_Latm: la liste d'atomes
+			_RatioC: le ratio d'augmentation ou de diminution de la distance moyenne de la selection
+			_eigenvectors: les vecteurs propres selectionés
+			_natm:le nombre d'atomes
+			_C: configuration
+	"""
+	distInit = calcDistance(selection,Latm) # calcule la sas de la selection
+	contrainte = []
+	for i in range(len(distInit)): 
+		contrainte.append(RatioC*distInit[i]) # définition de la contrainte
+	# modeE = 0
+	aj = 1 # permet d'aller vers une augmententation ou diminution la distance
+	if distInit[0] > contrainte[0]:
+		aj = - 1
+	Satisfait = False
+	distmax, distDefault = copy.deepcopy(distInit), copy.deepcopy(distInit)
+	print("Distance initiale des atomes de la selection {} : {}".format(selection,distInit))
+	w = W.Weights(len(eigenvectors)) # initialisation des poids (aléatoire)
+	prgs,d = 0,0 # d : pas de temps utilisé, prgs : décompte des itérations
+	Distances = []
+
+	while not Satisfait and prgs < C.niter: # tant que la contrainte n'est pas satisfaite et que le nombre d'iteration nest pas atteint
+		w.reajustWeights(prgs) # reajustement des poids
+
+		Latm = ReturnDisplacedLatmD(Latm,eigenvectors,natm,d,w.weights,C) # deplacement des atomes selon les modes pondérés
+		distInit = calcDistance(selection,Latm) # calcul de la surface accessible au solvent après déplacement
+		progress = True
+		for i,distance in enumerate(distInit): # pour chaque distance entre une paire d'atome
+			if distance*aj < distmax[i]*aj: # si une des distane ne progresse pas vers la contrainte
+				progress = False # break
+				break
+		
+		if progress: # si tt les distances sont depasse 
+			
+			w.reajustLimits(prgs) # reajustement des bornes des poids (entre -1 et 1)
+			w.saveCombinaisonMax(d) # sauvegarder cette combinaison 
+			distmax = copy.deepcopy(distInit)
+			Distances = []
+			print("Etape {}, évolution de la distance : {}".format(prgs,[aj*(distInit[i]- distDefault[i]) for i in range(len(distInit)) ]))
+			# retrieveData(prgs,(distInit- distDefault),C,modeE)
+			# modeE+=1
+			d+=1
+			if d > 20:
+				d=10
+
+		else :
+			Distances,w = W.watch(distInit,Distances,w)		
+			w.precState() # retourne au vecteur de poids précédent si pas d'amélioration	
+		# print("Seconds = {:.2f} , {:.2f}, {:.2f}".format((t2-t1),(t3-t2),(((t3-t2)-(t2-t1)))))
+		Satisfait = True
+		for i in range(len(distInit)): 
+			if contrainte[i]*aj > distInit[i]*aj:
+				Satisfait = False
+				break
+		prgs+=1
+
 	return [Latm,w]
 
 ############################################################################################################################
