@@ -71,6 +71,7 @@ class Atom:
     	dmass = {'H':1.,'C':12.,'N':14.,'O':16.,
     	'S':32.}
     	if ty not in dmass.keys():
+    		print('Unknown atom : {}'.format(ty))
     		return 10.
     	else:
     		return dmass[ty]

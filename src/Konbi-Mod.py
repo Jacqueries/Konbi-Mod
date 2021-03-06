@@ -18,7 +18,7 @@ import utilitaires as U
 import anime as A
 import NMAContrainte as N
 
-if sys.argv[1] == 'help' or sys.argv[1] == '-h':
+if len(sys.argv) != 2 or sys.argv[1] == 'help' or sys.argv[1] == '-h':
 	print(__doc__)
 	sys.exit()
 
