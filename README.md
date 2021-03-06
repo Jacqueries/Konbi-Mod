@@ -129,7 +129,7 @@ et un exemple :
 
 Un axe est défini par deux points dans l'espace 3D. Le volume est construit à partir de l'axe qui définira sa profondeur, et d'une hauteur H qui définira son épaisseur. Le volume est un pavé droit, il est préférable que son épaisseur soit supérieure au diamètre du canal. Idéalement le pavé droit doit contenir le volume vide du canal et la partie interne de la protéine le long du canal, de sorte à ce qu'il ne contienne pas le canal entièrement, ni ne soit contenu par la partie vide du canal.  
 
-![Représentation du volume (jaune), ses sommets (c1,c2,c3,c4), son axe (c0) par rapport à un canal protéique de face.](./images/canal.png)
+![Représentation du volume (jaune), ses sommets (c1,c2,c3,c4), son axe (c0) par rapport à un canal protéique de face.](./image/canal.png)
 
 Konbi-Mod lit le fichier axe et créé une représentation graphique du volume dans ./Struct/OBB.pdb. Vous pouvez charger OBB.pdb et votre sutructure pour vérifier si l'axe est correct, vous pouvez toujours modifier le fichire Axis pour faire des ajustements.
 
