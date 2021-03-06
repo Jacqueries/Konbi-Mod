@@ -467,12 +467,12 @@ def writeSelectedModes(vector,value,name,C):
 		for elem in vector[0]:
 			eig.write('{}\n'.format(elem))
 
-def writeWeights(wei):
+def writeWeights(wei,eigenvectors):
 	with open('out/Weights.txt','w') as w:
-		for k,elem in enumerate(wei.combinaisonMax):
-			w.write('Weights : {}\n'.format(k))
-			for e in elem:
-				w.write('{}\n'.format(e))
+		for k in range(len(wei.combinaisonMax)):
+			w.write('Etat {}\n'.format(k))
+			for e,key in enumerate(eigenvectors.keys()):
+				w.write('Indice_du_mode {}, Poids associe {:.3f}, Frequence {:.5f}, Collectivte {:.3f}\n'.format(e,wei.combinaisonMax[k][e],eigenvectors[key][1],eigenvectors[key][3]))
 
 def readEigenVs(file):
 	"""Lit un fichier comportant des vecteurs propres genéré par nma.py
@@ -512,7 +512,7 @@ def read_coord_PDB(nomfichier):
                 resname = line[17:20]
                 resNumber = line[23:27]
                 xyz = [x,y,z]
-                ty = ' '+str(line[13:14])#str(line[15:16])
+                ty = str(line[13:14])#' '+ str(line[15:16])
                 atome=N.Atom(numAtom,xyz,ty,chain,resname,resNumber)
                 liste_atomes.append(atome)
     return(liste_atomes)

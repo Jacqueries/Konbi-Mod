@@ -71,11 +71,12 @@ def wanted_mode(Vect,nmode,index):
 		n+=1
 	return nVect
 
-def initiate(xyz,Vector,natm,T,nrep,seuil):
+def initiate(Latm,Vector,natm,T,nrep,seuil):
 	"""Lance les calculs de collectivité d'amplitude et de fréquence.
 	Lance le calcul d'une trajectoire. Si collectivité < seuil retourne None
 	Retourne une trajectoire du déplacement des coordonnées selon le mode contenu dans Vector
 		-Args:
+			_Latm: liste d'objet Atom
 			_xyz: liste de coordonnées des atomes
 			_Vector: Dict qui contient un vecteur propre et une valeur propre.   
 			_natm: nombre d'atomes dans le système	
@@ -84,7 +85,7 @@ def initiate(xyz,Vector,natm,T,nrep,seuil):
 			_seuil: float entre 0 et 1. Seuil de collectivité des mouvements
 	"""
 	Vecteur = calcule_amp_frq(Vector,T)
-	trajectoire,distMax = animate2(xyz,Vecteur,nrep,natm)
+	trajectoire,distMax = animate2(Latm,Vecteur,nrep,natm)
 	key = list(Vecteur.keys())[0]
 	coll = collectivity(distMax,Vecteur[key][2],natm)
 	if coll < seuil:
@@ -170,36 +171,42 @@ def addition_vecteurs(v1,v2,ope):
 ############################################################################################################################
 # trajectoire, animation des modes normaux par animate.py SEUL
 
-def animate2(xyz,Vecteur,nrep,natm,way='default'):
+def animate2(Latm,Vecteur,nrep,natm,way='default'):
 	"""Deplace les atomes de la structure selon un mode sur nrep frames
 		-Args:
-			_xyz: liste de coordonnées des atomes
+			_Latm: liste d'objet Atom
 			_Vecteur: Dict qui contient un vecteur propre et une valeur propre, une fréquence et une amplitude   
 			_nrep: nombre de frames pour la trajectoire
 			_natm: nombre d'atomes dans le systeme
 			_way: module la valeur retournée. Depend du programme qui tourne. 
 			animate.py : way=default, Konbi-Mod: way=Free
 	"""
-	tab = list(range((nrep*2)+1)) # contient les frames de la trajectoire, au centre est l'état initial 
+	tab = list(range((nrep*2)+1)) # contient les frames de la trajectoire, au centre est l'état initial
+	xyz = []
+	for atom in Latm:
+		xyz.append(atom.xyz[0])
+		xyz.append(atom.xyz[1])
+		xyz.append(atom.xyz[2])
 	tab[nrep] = xyz
 	distMax = np.zeros(natm)
 	for d in range(0,nrep):
 		t = d
-		tab[d+nrep+1] = addition_vecteurs(tab[d+nrep],deplacement_along_mode2(Vecteur,t,natm),1)
+		tab[d+nrep+1] = addition_vecteurs(tab[d+nrep],deplacement_along_mode2(Vecteur,t,natm,Latm),1)
 		distMax = deplacement(tab[d+nrep+1],distMax,xyz)
 		if way == 'default':
-			tab[nrep-d-1] = addition_vecteurs(tab[nrep-d],deplacement_along_mode2(Vecteur,-t,natm),1)
+			tab[nrep-d-1] = addition_vecteurs(tab[nrep-d],deplacement_along_mode2(Vecteur,-t,natm,Latm),1)
 	if way == 'default':
 		return [tab,distMax]
 	else :
 		return distMax
 
-def deplacement_along_mode2(Vect,t,natm):
+def deplacement_along_mode2(Vect,t,natm,Latm):
 	"""Deplace toutes les coordonées du système selon un mode
 		-Args:
 			_Vect: Dict qui contient un vecteur propre et une valeur propre, une fréquence et une amplitude   
 			_t: frame du déplacement
 			_natm: nombre d'atomes du système
+			_Latm: liste d'objet Atom
 	Référence : Dynamical Properties of the MscL of Escherichia coli: A Normal Mode Analysis
 	H.Valadie,J.Lacapc,Y-H.Sanejouand and C.Etchebest
 	"""
@@ -210,18 +217,17 @@ def deplacement_along_mode2(Vect,t,natm):
 		# Vect[mode][0][coor] = ieme(coor) coordonnée du mode, Vect[mode][2] = amplitude du mode
 		# Vect[mode][1] = fréquence du mode
 		dpc[coor] = Vect[mode][0][coor]*Vect[mode][2]*np.cos(2*np.pi*Vect[mode][1]*t+np.pi)
-		dpc[coor] = 1/(np.sqrt(10))*dpc[coor] 
-		# pondération par la masse moyenne de l'atome
-		# inéxact mais ce module ne devrait pas être employé pour visualiser les modes, seulement dans le cadre de Konbi-Mod 
+		dpc[coor] = 1/(np.sqrt(Latm[int(coor/3)].mass))*dpc[coor] 
+		# pondération par la masse  de l'atome
 	return dpc
 
 ############################################################################################################################
 # starters et main(s)
 
-def returnLowFreq(xyz,Vector,natm,T,nrep,threshold):
+def returnLowFreq(Latm,Vector,natm,T,nrep,threshold):
 	"""Conserve les mode de collectivité supérieure au seuil
 		-Args:
-			_xyz: coordonées du système
+			_Latm: liste d'objet Atom
 			_Vector: vecteur propre
 			_natm: nombre d'atomes du système
 			_T: température indiquée dans le fichier de configuration
@@ -230,7 +236,7 @@ def returnLowFreq(xyz,Vector,natm,T,nrep,threshold):
 	"""
 
 	Vecteur = calcule_amp_frq(Vector,T)
-	distMax = animate2(xyz,Vecteur,nrep,natm,'Free')
+	distMax = animate2(Latm,Vecteur,nrep,natm,'Free')
 	key = list(Vecteur.keys())[0]
 	amp = Vecteur[key][2]
 	freq = Vecteur[key][1]
@@ -244,16 +250,16 @@ def returnLowFreq(xyz,Vector,natm,T,nrep,threshold):
 		print('Collectivité trop basse, mode ignoré')
 		return False
 
-def mainPlay(xyz,T,nrep,threshold,C):
+def mainPlay(T,nrep,threshold,C,Latm):
 	"""Ecrit dans un fichier les vecteurs de basses frequences et haute collectivité pour usage ultérieur
 		-Args:
-			_xyz: coordonées du système
 			_T: température indiquée dans le fichier de configuration
 			_nrep: nombre de frames pour la trajectoire (pour le calcul de collectivité)
 			_threshold: seuil de collectivité
 			_C: configuration
+			_Latm: liste d'objet Atom
 	"""
-	natm = int(len(xyz)/3)
+	natm = len(Latm)
 	vects = U.readEigenVs(C.efile)
 	vects = clean(vects,natm)
 
@@ -261,7 +267,7 @@ def mainPlay(xyz,T,nrep,threshold,C):
 	for i,k in enumerate(vects.keys()):
 		vect = {}
 		vect[k] = copy.deepcopy(vects[k])
-		vect = returnLowFreq(xyz,vect,natm,T,nrep,threshold) # contient les modes de collectivité > seuil
+		vect = returnLowFreq(Latm,vect,natm,T,nrep,threshold) # contient les modes de collectivité > seuil
 		if not vect:
 			lowFreq.append(k)
 		else :
@@ -282,12 +288,15 @@ def fromLaunch(Config):
 	T = Config.temp # température
 	nrep = 50 # nombre de frames  
 	thre = Config.coll
-	pdb = md.load_pdb(Config.pdb)
-	coord = pdb[0].xyz[0]
-	xyz = [c*10 for l in coord for c in l] # conversion en angström
-	mainPlay(xyz,T,nrep,thre,Config)
+	Latm = U.read_coord_PDB(Config.pdb)
+	
+	# pdb = md.load_pdb(Config.pdb)
+	# coord = pdb[0].xyz[0]
+	# xyz = [c*10 for l in coord for c in l] # conversion en angström
+	
+	mainPlay(T,nrep,thre,Config,Latm)
 
-def main(file,pdbF,xyz,T,nrep,seuil):
+def main(file,pdbF,Latm,T,nrep,seuil):
 	"""Hors programme principal (propre a anime.py). permet d'obtenir les trajectories de certains modes 
 	et d'ensuite les visualiser
 	Ecrit les trajectoires dans le format pdb
@@ -295,29 +304,36 @@ def main(file,pdbF,xyz,T,nrep,seuil):
 			_file: fichier contenant les vecteurs propres et valeurs propres générées par nma.py 
 			(fichier primaire de Konbi-Mod.py, peut être récupéré dans le repertoire mes_Modes après une run)
 			_pdbF: fichier pdb
+			_Latm: liste d'objet Atom
 			_xyz: liste de coordonnées des atomes
 			_T: entier, température
 			_seuil: float entre 0 et 1. Seuil de collectivité des mouvements
 	"""
-	natm = int(len(xyz)/3)
+	natm = len(Latm)
 	vects = U.readEigenVs(file)
 	vects = clean(vects,natm) # vérifications il existe parfois des duplicats ou des bugs
 
 	for i,k in enumerate(vects.keys()):
 		vect = wanted_mode(vects,1,i)
-		trajectoire = initiate(xyz,vect,natm,T,nrep,seuil)
+		trajectoire = initiate(Latm,vect,natm,T,nrep,seuil)
 		if trajectoire != None:
 			print("Writing.........")
 			U.write_PDB(pdbF,trajectoire,'w',i)
 
 if __name__ == '__main__':
+
+	if len(sys.argv) != 6 or sys.argv[1] == 'help':
+		print(__doc__)
+		sys.exit()
+
 	vecteur = sys.argv[1]
 	pdbfile = sys.argv[2]
 	temperature = int(sys.argv[3])
 	seuil = float(sys.argv[4])
 	nframes = int(sys.argv[5])
-	pdb = md.load_pdb(pdbfile) # lecture du fichier pdb par le module mdtraj
-	coord = pdb[0].xyz[0]
-	xyz = [c*10 for l in coord for c in l] # conversion des coordonnées dans un autre format et passage des nm aux angström
-	main(vecteur,pdbfile,xyz,temperature,nframes,seuil)
+	Latm = U.read_coord_PDB(pdbfile)
+	# pdb = md.load_pdb(pdbfile) # lecture du fichier pdb par le module mdtraj
+	# coord = pdb[0].xyz[0]
+	# xyz = [c*10 for l in coord for c in l] # conversion des coordonnées dans un autre format et passage des nm aux angström
+	main(vecteur,pdbfile,Latm,temperature,nframes,seuil)
 

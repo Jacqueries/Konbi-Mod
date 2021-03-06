@@ -615,7 +615,8 @@ def fromLaunch(C):
 		Latm,w = goDistance(selection,Latm,contrainte,eigenvectors,len(Latm),C)
 
 	if w.combinaisonMax:
-		visual(Latm,w,eigenvectors,pdb,C)
+		# visual(Latm,w,eigenvectors,pdb,C)
+		U.writeWeights(w,eigenvectors)
 		trajMaxCombinaison(Latm,eigenvectors,w,C)
 		writeMemory(w.memory)
 	else:

@@ -27,7 +27,7 @@ def write_Overlap(modes,overlap,option):
 		elif option == 's':
 			out.write('Indice_du_mode,Valeur_propre,Frequence,Collectivte,Recouvrement\n')
 			for i,key in enumerate(modes.keys()):
-				out.write('{},{:.5f},{:.5f},{:.3f},{:.3f}\n'.format(i,float(key),modes[key][1],modes[key][3],overlap[i]))
+				out.write('{},{:.5f},{:.5f},{:.3f},{:.3f}\n'.format(len(list(modes.keys()))-1-i,float(key),modes[key][1],modes[key][3],overlap[i]))
 def dist_between_two_strucOld(s1,s2):
 	"""Calcule un vecteur qui contient les distances entre les mêmes atomes de deux structures
 		-Args:
